@@ -9,7 +9,7 @@ const userSchema = new Schema(
       required: true,
       unique: true,
       lowercase: true,
-      trim: trim,
+      trim: true,
     },
     password: {
       type: String,
@@ -27,10 +27,10 @@ const userSchema = new Schema(
     },
     likedHistory: [
       {
-        type: Schema.type.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: "Post",
       },
-    ],
+    ], 
     refreshToken: {
       type: String,
     },
