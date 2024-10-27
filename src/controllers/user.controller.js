@@ -5,25 +5,24 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+//import bcrypt from "bcrypt"
 
 const registerUser = asyncHandler(async (req, res) => {
   //take necessary data from user to resister
- 
+
   const { fullname, email, password } = req.body;
 
   // check if the required fields are not empty
-  if (
-    [email, fullname,password].some((field) => field?.trim() === "")
-  ) {
+  if ([email, fullname, password].some((field) => field?.trim() === "")) {
     throw new ApiError(400, "all field are required");
   }
 
   //check for existed user in database before creating a new user account
   const existedUser = await User.findOne({
-   email: email,
+    email: email,
   });
   if (existedUser) {
-    throw new ApiError(409, "User with email or username already exist");
+    throw new ApiError(409, "User with this email  already exist");
   }
 
   //console.log(req.files);
@@ -35,10 +34,8 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Avatar file is required");
   }
 
-
-
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-  
+
   if (!avatar) {
     throw new ApiError(400, "Avatar file is required");
   }
@@ -62,12 +59,17 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User register successful"));
 });
 
-
+//const generateAccessToken =  (userId)=>{
+//    return  jwt.sign({userId}, process.env.ACCESS_TOKEN_SECRET, {expiresIn: process.env.ACCESS_TOKEN_EXPIRY})
+//}
+//const generateRefreshToken= (userId)=>{
+//  return jwt.sign({userId}, process.env.REFRESH_TOKEN_SECRET, {expiresIn: process.env.REFRESH_TOKEN_EXPIRY})
+//}
 const generateAccessAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
     const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken();
+    const refreshToken = user.generateRefershToken();
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
@@ -75,28 +77,34 @@ const generateAccessAndRefreshToken = async (userId) => {
   } catch (error) {
     throw new ApiError(
       500,
-      "Something went wrong while generating access and refresh token"
+      "Something went wrong while generating access and refresh token !"
     );
   }
 };
 
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const resisteredUser = await User.findOne({
+
+  if (!email) {
+    throw new ApiError(400, "Please enter your resistered email address ! ");
+  }
+  const user = await User.findOne({
     email: email,
   });
-  if (!resisteredUser) {
-    throw new ApiError(400, "Please enter your resistered email address ");
+  console.log(user)
+  if (!user) {
+    throw new ApiError(404, "user does not exist");
   }
-  const isPasswordValid = await User.isPasswordCorrect(password);
+  const isPasswordValid = await user.isPasswordCorrect(password)
   if (!isPasswordValid) {
-    throw new ApiError(400, " Invalid passord entered");
+    throw new ApiError(401, "Incorrect passord entered");
   }
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    resisteredUser?._id
-  );
-
-  const loggedInUser = await User.findById(resisteredUser?._id).select(
+  
+  //const accessToken=  generateAccessToken(user?._id)
+  //const refreshToken=  generateRefreshToken(user?._id)
+  
+  const {accessToken, refreshToken}= await generateAccessAndRefreshToken(user?._id)
+  const loggedInUser = await User.findById(user?._id).select(
     "-passord -refreshToken"
   );
 
@@ -313,4 +321,3 @@ export {
   getLikedHistory,
   getAuthorProfile,
 };
- 

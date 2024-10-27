@@ -6,11 +6,7 @@ const postSchema = new Schema(
       type: String,
       required: [true, "title must required"],
     },
-    subtitle: {
-      type: String,
-      required: true,
-    },
-    content: {
+    description: {
       type: String,
       required: true,
     },
@@ -18,6 +14,15 @@ const postSchema = new Schema(
       type: String,
       required: true,
     },
+     author:{
+        type: Schema.Types.ObjectId,
+        ref: "User"
+    },
+    isPublished:{
+      type: Boolean,
+      default: true
+
+    }
   },
   { timestamps: true }
 );

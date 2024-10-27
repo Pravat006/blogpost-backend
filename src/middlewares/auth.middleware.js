@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 // verifyJWT act as an middleware , will be used to applied somewhere to access some rooutes by verify used
-export const verifyJWT = asyncHandler(async (req, _, next) => {
+export const verifyJWT = asyncHandler(async (req, _,next) => {
   try {
     //take the current logined user's access token
     const token =
@@ -15,7 +15,6 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
     if (!token) {
       throw new ApiError(401, "UnAuthorized token");
     }
-s
     //now verify the client side token with the database saved token
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
@@ -30,6 +29,7 @@ s
     req.user = user;
     next();
   } catch (error) {
+    console.log("ERROR in authentication ")
     throw new ApiError(401, error?.message || "Invalid access token");
   }
 });
