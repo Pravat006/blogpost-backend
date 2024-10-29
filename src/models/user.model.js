@@ -25,12 +25,6 @@ const userSchema = new Schema(
       type: String,
       required: true,
     },
-    likedHistory: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Post",
-      },
-    ], 
     refreshToken: {
       type: String,
     },

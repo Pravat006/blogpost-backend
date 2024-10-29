@@ -229,29 +229,30 @@ const getAuthorProfile = asyncHandler(async (req, res) => {
     {
       $match: fullname?.trim(),
     },
-    {
-      $lookup: {
-        from: "subscriptions",
-        localField: "_id",
-        foreignField: "author",
-        as: "followers",
-      },
-    },
-    {
-      $addFields: {
-        followersCount: {
-          $size: "$followers",
-        },
-      },
-    },
+    //{
+    //  $lookup: {
+    //    from: "subscriptions",
+    //    localField: "_id",
+    //    foreignField: "author",
+    //    as: "followers",
+    //  },
+    //},
+    //{
+    //  $addFields: {
+    //    followersCount: {
+    //      $size: "$followers",
+    //    },
+    //  },
+    //},
     {
       $project: {
         fullname: 1,
-        followersCount: 1,
+        //followersCount: 1,
         avatar: 1,
       },
     },
   ]);
+  console.log("author profile: ", author)
   if (!author?.length) {
     throw new ApiError(404, "Author does not exist");
   }
@@ -263,53 +264,9 @@ const getAuthorProfile = asyncHandler(async (req, res) => {
     );
 });
 
-const getLikedHistory = asyncHandler(async (req, res) => {
-  const user = await User.aggregate([
-    {
-      $match: {
-        _id: new Mongoose.Types.ObjectId(req.user?._id),
-      },
-    },
-    {
-      $lookup: {
-        from: "posts",
-        localField: "likedHistory",
-        foreignField: "_id",
-        as: "likedHistory",
-        pipeline: [
-          {
-            $lookup: {
-              from: "users",
-              localField: "author",
-              foreignField: "_id",
-              as: "author",
-              pipeline: [
-                {
-                  $project: {
-                    fullname: 1,
-                    avatar: 1,
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
-    {
-      $addFields: {
-        author: {
-          $first: "$author",
-        },
-      },
-    },
-  ]);
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, user, "liked post history fetched successfully")
-    );
-});
+
+
+
 
 export {
   registerUser,
@@ -318,6 +275,5 @@ export {
   getCurrentUser,
   refreshAccessToken,
   changeCurrentPassword,
-  getLikedHistory,
   getAuthorProfile,
 };
