@@ -9,7 +9,7 @@ const router = Router();
 
 router.use(verifyJWT);
 
-router.post("/l/:postId", togglePostLike);
+router.post("/toggle/:postId", togglePostLike);
 router.get("/", getLikedPosts);
 
 export default router;

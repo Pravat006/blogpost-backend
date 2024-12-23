@@ -3,7 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Post } from "../models/post.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
-import { isValidObjectId } from "mongoose";
+import mongoose, { isValidObjectId, mongo } from "mongoose";
 
 //function to create a blogpost by the author(user)
 const publishPost = asyncHandler(async (req, res) => {
@@ -73,15 +73,16 @@ const getAllPost = asyncHandler(async (req, res) => {
 // get a post details by its id
 const getPostById = asyncHandler(async (req, res) => {
   try {
-    const postId = req.params;
+    const {postId} = req.params;
 
     if (!isValidObjectId(postId)) {
       throw new ApiError(4001, "Invalid blog post id provided");
     }
+
     const post = await Post.aggregate([
       {
         $match: {
-          _id: postId,
+          _id: new mongoose.Types.ObjectId(postId)
         },
       },
       {
@@ -89,7 +90,7 @@ const getPostById = asyncHandler(async (req, res) => {
           from: "likes",
           localField: "_id",
           foreignField: "post",
-          as: "likes",
+          as: "like",
         },
       },
       {
@@ -102,7 +103,7 @@ const getPostById = asyncHandler(async (req, res) => {
             {
               $project: {
                 fullname: 1,
-                "avatar.url": 1,
+                avatar: 1,
               },
             },
           ],
@@ -111,7 +112,7 @@ const getPostById = asyncHandler(async (req, res) => {
       {
         $addFields: {
           likesCount: {
-            $size: "likes",
+            $size: "$like",
           },
         },
       },
@@ -157,7 +158,7 @@ const updatePost = asyncHandler(async (req, res) => {
   if (!newImage) {
     throw new ApiError(400, "Error while uploading the new image on cloud");
   }
-  const updatePost = await Post.findByIdAndDelete(
+  const updatePost = await Post.findByIdAndUpdate(
     postId,
     {
       $set: {

@@ -5,6 +5,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { Post } from "../models/post.model.js";
+import mongoose from "mongoose";
 //import bcrypt from "bcrypt"
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -27,22 +29,22 @@ const registerUser = asyncHandler(async (req, res) => {
 
   //console.log(req.files);
 
-  //check for images, check for avatar
-  const avatarLocalPath = req.files?.avatar[0]?.path;
-  //const coverImageLocalPath = req.files?.coverImage[0]?.path;
-  if (!avatarLocalPath) {
-    throw new ApiError(400, "Avatar file is required");
-  }
+  ////check for images, check for avatar
+  //const avatarLocalPath = req.files?.avatar[0]?.path;
+  ////const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  //if (!avatarLocalPath) {
+  //  throw new ApiError(400, "Avatar file is required");
+  //}
 
-  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  //const avatar = await uploadOnCloudinary(avatarLocalPath);
 
-  if (!avatar) {
-    throw new ApiError(400, "Avatar file is required");
-  }
+  //if (!avatar) {
+  //  throw new ApiError(400, "Avatar file is required");
+  //}
 
   const user = await User.create({
     fullname,
-    avatar: avatar.url,
+    //avatar: avatar.url,
     email,
     password,
   });
@@ -91,7 +93,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const user = await User.findOne({
     email: email,
   });
-  console.log(user)
+  //console.log(user)
   if (!user) {
     throw new ApiError(404, "user does not exist");
   }
@@ -130,10 +132,16 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logOut = asyncHandler(async (req, res) => {
+
+
+  if (!req.user?._id) {
+    throw new ApiError(401, "Unauthorized request !");
+  }
   await User.findByIdAndUpdate(
-    req.user?._id,
+  req.user?._id,
     {
       $unset: {
+        //refreshToken: undefined,
         refreshToken: 1,
       },
     },
@@ -141,16 +149,15 @@ const logOut = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-
   const options = {
     httpOnly: true,
     secure: true,
   };
   return res
     .status(200)
-    .cookie("accessToken", options)
-    .cookie("refreshToken", options)
-    .json(new ApiResponse(200, {}, "User logged out successfully"));
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out successful"));
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
@@ -199,9 +206,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user?._id).select("-password -refreshToken");
   return res
     .status(200)
-    .json(new ApiResponse(200, req.user, "current user fetched successfully"));
+    .json(new ApiResponse(200, user, "current user fetched successfully"));
 });
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
@@ -221,47 +229,67 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "currentPassword changed successfully"));
 });
 const getAuthorProfile = asyncHandler(async (req, res) => {
-  const { fullname } = req.params;
-  if (!fullname?.trim()) {
-    throw new ApiError(400, "fullname is missing");
-  }
-  const author = await User.aggregate([
-    {
-      $match: fullname?.trim(),
-    },
-    //{
-    //  $lookup: {
-    //    from: "subscriptions",
-    //    localField: "_id",
-    //    foreignField: "author",
-    //    as: "followers",
-    //  },
-    //},
-    //{
-    //  $addFields: {
-    //    followersCount: {
-    //      $size: "$followers",
-    //    },
-    //  },
-    //},
-    {
-      $project: {
-        fullname: 1,
-        //followersCount: 1,
-        avatar: 1,
-      },
-    },
-  ]);
-  console.log("author profile: ", author)
-  if (!author?.length) {
-    throw new ApiError(404, "Author does not exist");
-  }
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, author[0], "Author profile fetched successfully")
+  try {
+    const { fullname } = req.params;
+    const author = await User.findOne({ fullname: fullname }).select(
+      "-password -refreshToken"
     );
+    if (!author) {
+      throw new ApiError(404, "Author not found");
+    }
+   const authoraggregate= await User.aggregate([
+     {
+      $match: {_id: new mongoose.Types.ObjectId(author?._id)}
+     },{
+        $lookup:{
+          from: "posts",
+          localField: "_id",
+          foreignField: "author",
+          as: "posts",
+          pipeline: [
+            {
+              $match:{
+                isPublished: true
+              }
+            },
+            {
+              $sort:{
+                createdAt: -1
+              }
+            },
+            {
+              $limit: 10
+            }
+          ]
+        }
+     },
+     
+     {
+        $project:{
+          _id: 0,
+          fullname: 1,
+          avatar: 1,
+          posts:{
+            title: 1,
+            description: 1,
+            image: 1,
+            isPublished: 1,
+            createdAt: 1,
+            updatedAt: 1
+          }
+        }
+     }
+  
+  
+   ])
+   return res.status(200).json(
+      new ApiResponse(200, authoraggregate, "Author profile fetched successfully")
+   )
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Something went wrong");
+    
+  }
+  
 });
 
 

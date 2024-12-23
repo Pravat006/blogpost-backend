@@ -28,10 +28,10 @@ router.route("/register").post(
 );
 
 router.route("/login").post(loginUser)
-router.route("/logout").post(logOut)
-router.route("/get-CurrentUser").get(getCurrentUser)
-router.route("/change-password").patch(changeCurrentPassword)
-router.route("/author-profile").get(verifyJWT,getAuthorProfile)
+router.route("/logout").post(verifyJWT,logOut)
+router.route("/current-user").get(verifyJWT,getCurrentUser)
+router.route("/change-password").patch(verifyJWT,changeCurrentPassword)
+router.route("/author-profile/:fullname").get(verifyJWT,getAuthorProfile)
 router.route("/refresh-token").post(refreshAccessToken);
 
 export default router

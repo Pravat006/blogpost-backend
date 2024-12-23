@@ -33,14 +33,14 @@ const togglePostLike = asyncHandler(async (req, res) => {
         .status(200)
         .json(new ApiResponse(200, {}, "post unliked successfully"));
     } else {
-      const newLike = await Like.create({
+       await Like.create({
         post: postId,
         likedBy: req.user?._id,
-      });
+      });    
     }
     return res
       .status(200)
-      .json(new ApiResponse(200, newLike, "Post liked successfully"));
+      .json(new ApiResponse(200, {}, "Post liked successfully"));
   } catch (error) {
     console.error("Error while toggling Like : ", error);
     return res.status(500).json({ message: "Server Error" });

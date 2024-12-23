@@ -7,7 +7,7 @@ const app = express();
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN,
-    credentials: true,
+    credentials: true
   })
 );
 
@@ -27,7 +27,7 @@ import likeRouter from "./routes/like.routes.js";
 
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/posts", postRouter);
-app.use("/api/v1/likes", likesRouter);
+app.use("/api/v1/likes",likeRouter );
 
 
 export default app;
