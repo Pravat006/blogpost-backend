@@ -3,7 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Post } from "../models/post.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
-import mongoose, { isValidObjectId, mongo } from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 
 //function to create a blogpost by the author(user)
 const publishPost = asyncHandler(async (req, res) => {
@@ -24,7 +24,7 @@ const publishPost = asyncHandler(async (req, res) => {
     title,
     description,
     image: image.url,
-    author: req.user?._id
+    author: req.user?._id,
   });
   const createdPost = await Post.findById(blogpost?._id);
   if (!createdPost) {
@@ -39,17 +39,60 @@ const publishPost = asyncHandler(async (req, res) => {
 // this function adds feature to get all posts by adding filtering, sorting, pagination
 const getAllPost = asyncHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy, order = "desc" } = req.query;
+    const { page = 1, limit = 10 } = req.query;
 
     //convert page and limit to intigers
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
 
     //creating the query with the filters and  options
-    const posts = await Post.find()
-      .sort({ [sortBy]: order === "desc" ? -1 : 1 }) // Sort by field and order
-      .skip((pageNumber - 1) * limitNumber) // Skip documents for pagination
-      .limit(limitNumber); // Limit number of results per page
+    const posts = await Post.aggregate([
+      {
+        $lookup: {
+          from: "users",
+          localField: "author", // Field in the 'Post' collection
+          foreignField: "_id", // Field in the 'users' collection
+          as: "author", // Output field to store author data
+          pipeline: [
+            {
+              $project: {
+                fullname: 1,
+                avatar: 1, // Include only 'fullname' and 'avatar'
+              },
+            },
+          ],
+        },
+      },
+      // Extract the first author (flatten the array)
+      {
+        $addFields: {
+          author: { $first: "$author" },
+        },
+      },
+      // Sort posts by 'createdAt' in descending order
+      {
+        $sort: { createdAt: -1 },
+      },
+      // Skip documents for pagination
+      {
+        $skip: (pageNumber - 1) * limitNumber, // Skip documents based on page and limit
+      },
+      // Limit the number of documents returned
+      {
+        $limit: limitNumber, // Limit the results to the specified number
+      },
+      // Project only required fields
+      {
+        $project: {
+          title: 1,
+          description: 1,
+          image: 1,
+          author: 1, // Includes author details (flattened above)
+          createdAt: 1,
+          likesCount: 1,
+        },
+      },
+    ]); // Limit number of results per page
     const totalPosts = await Post.countDocuments();
 
     return res.status(200).json(
@@ -73,7 +116,7 @@ const getAllPost = asyncHandler(async (req, res) => {
 // get a post details by its id
 const getPostById = asyncHandler(async (req, res) => {
   try {
-    const {postId} = req.params;
+    const { postId } = req.params;
 
     if (!isValidObjectId(postId)) {
       throw new ApiError(4001, "Invalid blog post id provided");
@@ -82,7 +125,7 @@ const getPostById = asyncHandler(async (req, res) => {
     const post = await Post.aggregate([
       {
         $match: {
-          _id: new mongoose.Types.ObjectId(postId)
+          _id: new mongoose.Types.ObjectId(postId),
         },
       },
       {
@@ -162,8 +205,8 @@ const updatePost = asyncHandler(async (req, res) => {
     postId,
     {
       $set: {
-        title: newTitle ,
-        description: newDescription ,
+        title: newTitle,
+        description: newDescription,
         image: newImage?.url.toString() || "",
       },
     },
@@ -179,14 +222,13 @@ const updatePost = asyncHandler(async (req, res) => {
 const deletePost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
   if (!isValidObjectId(postId)) {
-    throw new ApiError(404, "Invalid blogpost id provided")
+    throw new ApiError(404, "Invalid blogpost id provided");
   }
-  await Post.findByIdAndDelete(postId)
+  await Post.findByIdAndDelete(postId);
 
-  return res.status(200).json(
-    new ApiResponse(200, {}, "Blog Post deleted successfully")
-  )
-
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Blog Post deleted successfully"));
 });
 
 export { publishPost, getAllPost, getPostById, updatePost, deletePost };
