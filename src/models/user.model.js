@@ -1,4 +1,4 @@
-import mongoose, {  Schema } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -23,8 +23,7 @@ const userSchema = new Schema(
     },
     avatar: {
       type: String,
-      required:true
-     
+      required: true
     },
     refreshToken: {
       type: String,
@@ -32,46 +31,44 @@ const userSchema = new Schema(
   },
   { timestamps: true }
 );
-userSchema.pre("save", async function (next){
-    if(!this.isModified("password")) return next();
-      
-    this.password= await bcrypt.hash(this.password, 10);
-      next()   
-  });
 
-  //writing some custom mongoose methods to do a perticular task
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
 
-// isPasseordCorrect used to validate the password while user trying to login
-  userSchema.methods.isPasswordCorrect= async function(password){
-     return await bcrypt.compare(password, this.password)
-  }
-  
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
 
-  // these methods generate access token and refresh token during user login process
-  userSchema.methods.generateAccessToken = function(){
-    return jwt.sign({
-      _id: this._id,
-      email: this.email,
-      fullname: this.fullname
-       },
-       process.env.ACCESS_TOKEN_SECRET,
-       {
-        expiresIn: process.env.ACCESS_TOKEN_EXPIRY
-       }
-    )
-  }
-  userSchema.methods.generateRefershToken= function(){
-    return jwt.sign({
-      _id: this._id,
-      email: this.email,
-      fullname: this.fullname
-       },
-       process.env.REFRESH_TOKEN_SECRET,
-       {
-          expiresIn: process.env.REFRESH_TOKEN_EXPIRY
-       }
-    )
+//writing some custom mongoose methods to do a particular task
 
-  }
+// isPasswordCorrect used to validate the password while user trying to login
+userSchema.methods.isPasswordCorrect = async function (password) {
+  return await bcrypt.compare(password, this.password);
+};
+
+// these methods generate access token and refresh token during user login process
+userSchema.methods.generateAccessToken = function () {
+  return jwt.sign({
+    _id: this._id,
+    email: this.email,
+    fullname: this.fullname
+  },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1d"
+    });
+};
+
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign({
+    _id: this._id,
+    email: this.email,
+    fullname: this.fullname
+  },
+    process.env.REFRESH_TOKEN_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "10d"
+    });
+};
 
 export const User = mongoose.model("user", userSchema);

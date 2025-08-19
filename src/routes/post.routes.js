@@ -11,6 +11,11 @@ import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router();
 
+// Public routes (no authentication required)
+router.route("/").get(getAllPost);
+router.route("/getPost/:postId").get(getPostById);
+
+// Protected routes (authentication required)
 router.use(verifyJWT);
 
 router.route("/publishPost").post(
@@ -22,10 +27,7 @@ router.route("/publishPost").post(
   ]),
   publishPost
 );
-router.route("/").get(getAllPost);
-router.route("/getPost/:postId").get(getPostById);
 router.route("/deletePost/:postId").delete(deletePost);
-router.route("/updatePost/:postId").patch(upload.single("image"),updatePost);
-
+router.route("/updatePost/:postId").patch(upload.single("image"), updatePost);
 
 export default router;

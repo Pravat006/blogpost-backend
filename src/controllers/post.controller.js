@@ -8,7 +8,7 @@ import mongoose, { isValidObjectId } from "mongoose";
 //function to create a blogpost by the author(user)
 const publishPost = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
-  if ([title, description].some((fields) => fields.trim() === " ")) {
+  if ([title, description].some((fields) => fields.trim() === "")) {
     throw new ApiError(400, "All fields are required");
   }
   const imageLocalpath = req.files?.image[0]?.path;
@@ -41,7 +41,7 @@ const getAllPost = asyncHandler(async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
 
-    //convert page and limit to intigers
+    //convert page and limit to integers
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
 
@@ -63,10 +63,16 @@ const getAllPost = asyncHandler(async (req, res) => {
           ],
         },
       },
-      // Extract the first author (flatten the array)
+      // Extract the first author (flatten the array) and handle missing authors
       {
         $addFields: {
-          author: { $first: "$author" },
+          author: {
+            $cond: {
+              if: { $gt: [{ $size: "$author" }, 0] },
+              then: { $arrayElemAt: ["$author", 0] },
+              else: null
+            }
+          },
         },
       },
       // Sort posts by 'createdAt' in descending order
@@ -84,6 +90,7 @@ const getAllPost = asyncHandler(async (req, res) => {
       // Project only required fields
       {
         $project: {
+          _id: 1,
           title: 1,
           description: 1,
           image: 1,
@@ -119,7 +126,7 @@ const getPostById = asyncHandler(async (req, res) => {
     const { postId } = req.params;
 
     if (!isValidObjectId(postId)) {
-      throw new ApiError(4001, "Invalid blog post id provided");
+      throw new ApiError(400, "Invalid blog post id provided");
     }
 
     const post = await Post.aggregate([
@@ -157,10 +164,18 @@ const getPostById = asyncHandler(async (req, res) => {
           likesCount: {
             $size: "$like",
           },
+          author: {
+            $cond: {
+              if: { $gt: [{ $size: "$author" }, 0] },
+              then: { $arrayElemAt: ["$author", 0] },
+              else: null
+            }
+          },
         },
       },
       {
         $project: {
+          _id: 1,
           title: 1,
           description: 1,
           image: 1,
@@ -170,13 +185,14 @@ const getPostById = asyncHandler(async (req, res) => {
         },
       },
     ]);
-    if (!post) {
-      throw new ApiError(400, "Something went wrong while getting the post");
+
+    if (!post || post.length === 0) {
+      throw new ApiError(404, "Post not found");
     }
 
     return res
       .status(200)
-      .json(new ApiResponse(200, post, "Blog post fetched successfully"));
+      .json(new ApiResponse(200, post[0], "Blog post fetched successfully"));
   } catch (error) {
     throw new ApiError(500, "server error while fetching the blog post");
   }
@@ -193,32 +209,33 @@ const updatePost = asyncHandler(async (req, res) => {
   if (!post) {
     throw new ApiError(404, "Blog post not found");
   }
-  const newImageLocalpath = req.files?.image[0]?.path;
+
+  const newImageLocalpath = req.file?.path;
   let newImage;
-  if (newImage) {
+  if (newImageLocalpath) {
     newImage = await uploadOnCloudinary(newImageLocalpath);
   }
-  if (!newImage) {
-    throw new ApiError(400, "Error while uploading the new image on cloud");
+
+  const updateData = {
+    title: newTitle || post.title,
+    description: newDescription || post.description,
+  };
+
+  if (newImage) {
+    updateData.image = newImage.url;
   }
-  const updatePost = await Post.findByIdAndUpdate(
+
+  const updatedPost = await Post.findByIdAndUpdate(
     postId,
-    {
-      $set: {
-        title: newTitle,
-        description: newDescription,
-        image: newImage?.url.toString() || "",
-      },
-    },
-    {
-      new: true,
-    }
+    { $set: updateData },
+    { new: true }
   );
-  const updatedPost = await Post.findById(updatePost._id);
+
   return res
     .status(200)
     .json(new ApiResponse(200, updatedPost, "blog post successfully updated"));
 });
+
 const deletePost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
   if (!isValidObjectId(postId)) {
